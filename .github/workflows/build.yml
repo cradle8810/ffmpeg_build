@@ -1,0 +1,93 @@
+name: Build ffmpeg
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive \
+          apt-get install -y \
+            autoconf \
+            automake \
+            build-essential \
+            cmake \
+            git \
+            libnuma-dev \
+            libssl-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            python3-pip \
+            yasm
+
+    - name: Checkout build script
+      uses: actions/checkout@v4
+      with:
+        path: ffmpeg-static
+    
+    - name: chmod +x *.sh
+      working-directory: ffmpeg-static
+      run: |
+        chmod +x *.sh
+
+    - name: Build libdrm
+      working-directory: ffmpeg-static
+      run: |
+        ./libdrm.sh
+
+    - name: Build libva
+      working-directory: ffmpeg-static
+      run: |
+        ./libva.sh
+
+    - name: Build mediasdk
+      working-directory: ffmpeg-static
+      run: |
+        ./mediasdk.sh
+
+    - name: Build x264
+      working-directory: ffmpeg-static
+      run: |
+        ./x264.sh
+
+    - name: Build ffmpeg
+      working-directory: ffmpeg-static
+      run: |
+        ./ffmpeg.sh
+
+    - name: Copy artifacts
+      run: |
+        cp ffmpeg-static/ffmpeg/build/bin/ffmpeg .
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary
+        path: "ffmpeg"
+
+  test:
+    runs-on: ubuntu-24.04
+    needs:
+      - build
+    steps:
+      - name: Print ffmpeg Version
+        run: |
+          ./ffmpeg -version
+
+      - name: Print ffmpeg Encorders
+        run: |
+          ./ffmpeg -encoders
+
+      - name: Print ffmpeg Encoders grep qsv
+        run: |
+          ./ffmpeg -encoders | grep qsv
+
+      - name: Print ffmpeg Encoders grep vaapi
+        run: |
+          ./ffmpeg -encoders | grep vaapi
