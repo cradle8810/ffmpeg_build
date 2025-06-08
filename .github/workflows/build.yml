@@ -4,6 +4,12 @@ on:
   workflow_dispatch:
   push:
 
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -16,59 +22,103 @@ jobs:
             autoconf \
             automake \
             build-essential \
+            ccache \
             cmake \
             git \
             libnuma-dev \
             libssl-dev \
             meson \
+            nasm \
             ninja-build \
             pkg-config \
             python3-pip \
-            yasm
+            yasm \
+            xutils-dev
 
     - name: Checkout build script
       uses: actions/checkout@v4
-      with:
-        path: ffmpeg-static
     
     - name: chmod +x *.sh
-      working-directory: ffmpeg-static
       run: |
         chmod +x *.sh
 
+    - name: Restore Ccaches
+      uses: actions/cache/restore@v3
+      with:
+        key: ccache_build
+        path: "/home/runner/.cache/ccache"
+
+    - name: Show ccache configurations/stats
+      run: |
+        ccache -p
+        ccache -s
+
+    - name: Build libpciaccess
+      run: |
+        ./libpciaccess.sh
+
     - name: Build libdrm
-      working-directory: ffmpeg-static
       run: |
         ./libdrm.sh
 
     - name: Build libva
-      working-directory: ffmpeg-static
       run: |
         ./libva.sh
 
-    - name: Build mediasdk
-      working-directory: ffmpeg-static
+    - name: Clone Intel gmmlib
+      uses: actions/checkout@v4
+      with:
+        repository: 'intel/gmmlib'
+        path: gmmlib
+
+    - name: Build Intel gmmlib
       run: |
-        ./mediasdk.sh
+        ./gmmlib.sh
+
+    - name: Clone Intel media-driver
+      uses: actions/checkout@v4
+      with:
+        repository: 'intel/media-driver'
+        path: media-driver
+
+    - name: Build Intel media-driver
+      id: build_intel_media_driver
+      run: |
+        ./media-driver.sh
+
+    - name: Clone Intel media-SDK
+      uses: actions/checkout@v4
+      with:
+        repository: 'Intel-Media-SDK/MediaSDK'
+        path: media-sdk
+
+    - name: Build Intel media-SDK
+      run: |
+        ./media-sdk.sh
 
     - name: Build x264
-      working-directory: ffmpeg-static
       run: |
         ./x264.sh
 
     - name: Build ffmpeg
-      working-directory: ffmpeg-static
       run: |
         ./ffmpeg.sh
 
     - name: Copy artifacts
       run: |
-        cp ffmpeg-static/ffmpeg/build/bin/ffmpeg .
+        cp ffmpeg/build/bin/ffmpeg-source .
+
+    - name: Save Ccaches
+      uses: actions/cache/save@v3
+      with:
+        key: ccache_build
+        path: "/home/runner/.cache/ccache"
+      if: ${{ always() || cancelled() }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: binary
+        name: ccache-build
         path: "ffmpeg"
 
   test:
@@ -76,6 +126,10 @@ jobs:
     needs:
       - build
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary
+
       - name: Print ffmpeg Version
         run: |
           ./ffmpeg -version

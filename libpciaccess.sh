@@ -3,13 +3,10 @@ set -euo pipefail
 
 JOBS="$(nproc)"
 
-
-git clone https://github.com/intel/libva.git
-cd libva
+git clone https://github.com/projectceladon/libpciaccess
+cd libpciaccess
 CC='ccache gcc' \
-CXX='ccache gcc' \
-CFLAGS="-O2 -fPIC" \
-CXXFLAGS="-O2 -fPIC" \
+CXX='ccache gcc'\
   ./autogen.sh \
     --disable-shared \
     --enable-static

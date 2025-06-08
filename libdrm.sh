@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PREFIX="$PWD/build"
-mkdir -p "$PREFIX"
-
 git clone https://gitlab.freedesktop.org/mesa/drm.git libdrm
 cd libdrm
-meson setup build -Ddrm_tests=false -Dshared_library=false --prefix="$PREFIX"
-ninja -C build && ninja -C build install
+sudo meson setup build \
+  -D default_library=static \
+  -D intel=enabled \
+  -D tests=false \
+  -D udev=true
+sudo ninja -C build
+sudo ninja -C build install
